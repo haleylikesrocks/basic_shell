@@ -19,8 +19,6 @@ void parse_line(char* str, char** parsed){
 
   for (count = 0; count < sizeof( *parsed); count++){
     parsed[count] = strsep(&str, " ");
-    printf("the word here is : %s \n", parsed[count]);
-    printf("the count is now %d", count);
 
     if (parsed[count] == NULL)
       break;
@@ -29,10 +27,6 @@ void parse_line(char* str, char** parsed){
     // if (strlen(parsed[count]) == 0){
     //   count--;
     // }
-
-    // parsed[count] = strsep(&str, " ");
-    // printf("the word here is : %s \n", parsed[count]);
-    // printf("the count is now %d", count);
   }
 }
 
@@ -74,6 +68,7 @@ void interactive_wish(void){
 
   while (strcmp(line_buffer, target) != 10){
     // parsing the line
+    line_buffer[strcspn(line_buffer, "\n")] = 0;
     parse_line(line_buffer, parsed_args);
     execute_arg(parsed_args);
     printf("wish> ");
