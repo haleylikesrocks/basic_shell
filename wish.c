@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 int piped(void){
   exit(0);
@@ -15,8 +18,22 @@ void parse_line(){
 
 }
 
-int execute_arg(void){
-  return 0;
+void execute_arg(char** parsed){
+  int flag;
+  pid_t pid = fork();
+
+  if (pid < 0){
+    printf("\n failed to fork, maybe try a spoon \n")
+  } else if (pid == 0){
+    flag = execvp(parsed[0], parsed)
+    if (flag < 0){
+      printf("\n failed to execute, maybe try prison \n")
+    }
+    exit(0);
+  } else{
+    wait(NULL);
+    return(0);
+  }
 }
 
 int batch_wish(void){
