@@ -14,8 +14,26 @@ int parse_piped(){
   exit(0);
 }
 
-void parse_line(){
+void parse_line(char* str, char** parsed){
+  int count;
 
+  for (count = 0; count < sizeof( *parsed); count++){
+    parsed[count] = strsep(&str, " ");
+    printf("the word here is : %s \n", parsed[count]);
+    printf("the count is now %d", count);
+
+    if (parsed[count] == NULL)
+      break;
+  
+
+    // if (strlen(parsed[count]) == 0){
+    //   count--;
+    // }
+
+    // parsed[count] = strsep(&str, " ");
+    // printf("the word here is : %s \n", parsed[count]);
+    // printf("the count is now %d", count);
+  }
 }
 
 void execute_arg(char** parsed){
@@ -23,16 +41,16 @@ void execute_arg(char** parsed){
   pid_t pid = fork();
 
   if (pid < 0){
-    printf("\n failed to fork, maybe try a spoon \n")
+    printf("\n failed to fork, maybe try a spoon \n");
   } else if (pid == 0){
-    flag = execvp(parsed[0], parsed)
+    flag = execvp(parsed[0], parsed);
     if (flag < 0){
-      printf("\n failed to execute, maybe try prison \n")
+      printf("\n failed to execute, maybe try prison \n");
     }
     exit(0);
   } else{
     wait(NULL);
-    return(0);
+    return;
   }
 }
 
@@ -45,22 +63,19 @@ void interactive_wish(void){
   size_t line_buffer_size =0;
   // ssize_t line_size = 0;
   char *target = "exit";
-  char *found;
+  int input_size;
   
 
   // geting the user input
   printf("wish> ");
-  getline(&line_buffer, &line_buffer_size, stdin);
+  input_size = getline(&line_buffer, &line_buffer_size, stdin);
+
+  char* parsed_args[input_size];
+
   while (strcmp(line_buffer, target) != 10){
-    printf("%d", strcmp(line_buffer, target));
-
     // parsing the line
-    while( (found = strsep(&line_buffer," ")) != NULL ){
-    printf("%s\n",found);
-        }
-
-    // parse_line(line_buffer);
-    // execute_arg();
+    parse_line(line_buffer, parsed_args);
+    execute_arg(parsed_args);
     printf("wish> ");
     getline(&line_buffer, &line_buffer_size, stdin);
   }
