@@ -6,15 +6,10 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-int piped(void){
-  exit(0);
-}
 
-int parse_piped(){
-  exit(0);
-}
+char error_message[30] = "An error has occurred\n";
 
-void parse_line(char* str, char** parsed){
+int parse_line(char* str, char** parsed){
   int count;
 
   for (count = 0; count < sizeof( *parsed); count++){
@@ -28,6 +23,7 @@ void parse_line(char* str, char** parsed){
     //   count--;
     // }
   }
+  return(count);
 }
 
 void execute_arg(char** parsed){
@@ -35,11 +31,11 @@ void execute_arg(char** parsed){
   pid_t pid = fork();
 
   if (pid < 0){
-    printf("\n failed to fork, maybe try a spoon \n");
+    write(STDERR_FILENO, error_message, strlen(error_message));
   } else if (pid == 0){
     flag = execvp(parsed[0], parsed);
     if (flag < 0){
-      printf("\n failed to execute, maybe try prison \n");
+      write(STDERR_FILENO, error_message, strlen(error_message));
     }
     exit(0);
   } else{
@@ -53,7 +49,7 @@ int batch_wish(FILE *fp){
   size_t line_buffer_size = 0;
   int input_size = 0;
 
-  while(input_size >= 0){
+  do {
 
     input_size = getline(&line_buffer, &line_buffer_size, fp);
     char* parsed_args[input_size];
@@ -62,7 +58,7 @@ int batch_wish(FILE *fp){
       parse_line(line_buffer, parsed_args);
       execute_arg(parsed_args);
     }
-  }
+  } while(input_size > 0);
 
   exit(0);
 }
@@ -70,24 +66,37 @@ int batch_wish(FILE *fp){
 void interactive_wish(void){
   char *line_buffer = NULL;
   size_t line_buffer_size =0;
-  // ssize_t line_size = 0;
-  char *target = "exit";
+  // char *target = "exit";
   int input_size;
-  
+  int arg_num;
 
-  // geting the user input
-  printf("wish> ");
-  input_size = getline(&line_buffer, &line_buffer_size, stdin);
+  while (1){
+    printf("wish> ");
+    input_size = getline(&line_buffer, &line_buffer_size, stdin);
 
-  char* parsed_args[input_size];
+    char* parsed_args[input_size];
 
-  while (strcmp(line_buffer, target) != 10){
     // parsing the line
     line_buffer[strcspn(line_buffer, "\n")] = 0;
-    parse_line(line_buffer, parsed_args);
-    execute_arg(parsed_args);
-    printf("wish> ");
-    getline(&line_buffer, &line_buffer_size, stdin);
+    arg_num = parse_line(line_buffer, parsed_args);
+
+    // checking to see if it is a built in command
+    if (strcmp(parsed_args[0], "exit") == 0){
+      exit(0);
+    } else if (strcmp(parsed_args[0], "cd") == 0){
+      if (arg_num != 2){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+      } else if (chdir(parsed_args[1]) == -1){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        // chdir(parsed_args[1]);
+      }
+    } else if (strcmp(parsed_args[0], "path") == 0){
+      exit(0);
+    } else {
+      // excuting the command 
+      execute_arg(parsed_args);
+    }
+
   }
 
     
@@ -102,6 +111,10 @@ int main(int argc, char **argv)
     FILE *fpin;
 
     fpin = fopen(argv[1], "r");
+    if(fpin == NULL){
+      write(STDERR_FILENO, error_message, strlen(error_message));
+      exit(1);
+    }
     batch_wish(fpin);
   }
   
