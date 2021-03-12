@@ -92,7 +92,12 @@ int batch_wish(FILE *fp){
       arg_num = parse_line(line_buffer, parsed_args);
 
       if (strcmp(parsed_args[0], "exit") == 0){
-        exit(0);
+        if (arg_num != 1){
+          write(STDERR_FILENO, error_message, strlen(error_message));
+          continue;
+        } else{
+          exit(0);
+        }
       } else if (strcmp(parsed_args[0], "cd") == 0){
         if (arg_num != 2){
           write(STDERR_FILENO, error_message, strlen(error_message));
@@ -101,8 +106,9 @@ int batch_wish(FILE *fp){
           write(STDERR_FILENO, error_message, strlen(error_message));
           continue;
         }
+      } else {
+        execute_arg(parsed_args);
       }
-      execute_arg(parsed_args);
     }
 
     line_buffer = '\0';
@@ -128,7 +134,12 @@ void interactive_wish(void){
 
     // checking to see if it is a built in command
     if (strcmp(parsed_args[0], "exit") == 0){
-      exit(0);
+      if (arg_num != 1){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        continue;
+      } else{
+        exit(0);
+      }
     } else if (strcmp(parsed_args[0], "cd") == 0){
       if (arg_num != 2){
         write(STDERR_FILENO, error_message, strlen(error_message));
@@ -161,6 +172,11 @@ int main(int argc, char **argv)
       write(STDERR_FILENO, error_message, strlen(error_message));
       exit(1);
     }
+    if(argc > 2){
+      write(STDERR_FILENO, error_message, strlen(error_message));
+      exit(1);
+    }
+
     batch_wish(fpin);
   }
   
