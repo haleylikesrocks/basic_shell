@@ -48,7 +48,22 @@ void execute_arg(char** parsed){
   }
 }
 
-int batch_wish(void){
+int batch_wish(FILE *fp){
+  char *line_buffer = NULL;
+  size_t line_buffer_size = 0;
+  int input_size = 0;
+
+  while(input_size >= 0){
+
+    input_size = getline(&line_buffer, &line_buffer_size, fp);
+    char* parsed_args[input_size];
+
+    if(line_buffer[0] != '#'){
+      parse_line(line_buffer, parsed_args);
+      execute_arg(parsed_args);
+    }
+  }
+
   exit(0);
 }
 
@@ -84,7 +99,10 @@ void interactive_wish(void){
 int main(int argc, char **argv)
 {
   if(argc > 1){
-    batch_wish();
+    FILE *fpin;
+
+    fpin = fopen(argv[1], "r");
+    batch_wish(fpin);
   }
   
   interactive_wish();
