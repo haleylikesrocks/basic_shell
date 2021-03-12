@@ -40,8 +40,8 @@ void execute_arg(char** parsed){
     if (flag < 0){
       write(STDERR_FILENO, error_message, strlen(error_message));
       // return;
-      printf("error in flag execvp");
-      exit;
+      // printf("error in flag execvp");
+      // exit;
     }
     exit(0);
   } else{
@@ -50,10 +50,32 @@ void execute_arg(char** parsed){
   }
 }
 
+// int built_in(char** parsed){
+//   if (strcmp(parsed_args[0], "exit") == 0){
+//       exit(0);
+//     } else if (strcmp(parsed_args[0], "cd") == 0){
+//       if (arg_num != 2){
+//         write(STDERR_FILENO, error_message, strlen(error_message));
+//         printf("wrong args num\n");
+//       } else if (chdir(parsed_args[1]) == -1){
+//         write(STDERR_FILENO, error_message, strlen(error_message));
+//         printf("invalid cd");
+//         // chdir(parsed_args[1]);
+//       }
+//     } else if (strcmp(parsed_args[0], "path") == 0){
+//       return;
+//     } 
+//     }
+
+//   }
+
+// }
+
 int batch_wish(FILE *fp){
   char *line_buffer = NULL;
   size_t line_buffer_size = 0;
   int input_size = 0;
+  int arg_num;
 
   while (input_size >= 0){
 
@@ -67,7 +89,19 @@ int batch_wish(FILE *fp){
     // printf("the input size is %d", input_size);
 
     if(line_buffer[0] != '#'){
-      parse_line(line_buffer, parsed_args);
+      arg_num = parse_line(line_buffer, parsed_args);
+
+      if (strcmp(parsed_args[0], "exit") == 0){
+        exit(0);
+      } else if (strcmp(parsed_args[0], "cd") == 0){
+        if (arg_num != 2){
+          write(STDERR_FILENO, error_message, strlen(error_message));
+          continue;
+        } else if (chdir(parsed_args[1]) == -1){
+          write(STDERR_FILENO, error_message, strlen(error_message));
+          continue;
+        }
+      }
       execute_arg(parsed_args);
     }
 
