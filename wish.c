@@ -12,6 +12,8 @@ char error_message[30] = "An error has occurred\n";
 int parse_line(char* str, char** parsed){
   int count;
 
+  str[strcspn(str, "\n")] = 0;
+
   for (count = 0; count < sizeof( *parsed); count++){
     parsed[count] = strsep(&str, " ");
 
@@ -32,10 +34,14 @@ void execute_arg(char** parsed){
 
   if (pid < 0){
     write(STDERR_FILENO, error_message, strlen(error_message));
+    printf("there err is in pid < 0");
   } else if (pid == 0){
     flag = execvp(parsed[0], parsed);
     if (flag < 0){
       write(STDERR_FILENO, error_message, strlen(error_message));
+      // return;
+      printf("error in flag execvp");
+      exit;
     }
     exit(0);
   } else{
@@ -49,16 +55,24 @@ int batch_wish(FILE *fp){
   size_t line_buffer_size = 0;
   int input_size = 0;
 
-  do {
+  while (input_size >= 0){
 
     input_size = getline(&line_buffer, &line_buffer_size, fp);
+    if (input_size < 0){
+      exit(0);
+    }
+  
     char* parsed_args[input_size];
+    // printf("the line begins with %c", line_buffer[0]);
+    // printf("the input size is %d", input_size);
 
     if(line_buffer[0] != '#'){
       parse_line(line_buffer, parsed_args);
       execute_arg(parsed_args);
     }
-  } while(input_size > 0);
+
+    line_buffer = '\0';
+  }
 
   exit(0);
 }
@@ -66,7 +80,6 @@ int batch_wish(FILE *fp){
 void interactive_wish(void){
   char *line_buffer = NULL;
   size_t line_buffer_size =0;
-  // char *target = "exit";
   int input_size;
   int arg_num;
 
@@ -77,7 +90,6 @@ void interactive_wish(void){
     char* parsed_args[input_size];
 
     // parsing the line
-    line_buffer[strcspn(line_buffer, "\n")] = 0;
     arg_num = parse_line(line_buffer, parsed_args);
 
     // checking to see if it is a built in command
