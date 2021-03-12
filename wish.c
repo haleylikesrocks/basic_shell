@@ -5,6 +5,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 
 char error_message[30] = "An error has occurred\n";
@@ -39,9 +41,6 @@ void execute_arg(char** parsed){
     flag = execvp(parsed[0], parsed);
     if (flag < 0){
       write(STDERR_FILENO, error_message, strlen(error_message));
-      // return;
-      // printf("error in flag execvp");
-      // exit;
     }
     exit(0);
   } else{
@@ -71,6 +70,52 @@ void execute_arg(char** parsed){
 
 // }
 
+void parallel(char* str){
+  int count, i;
+  pid_t pid;
+  char* parsed[1000];
+  char* redirect_parsed[1000];
+
+  str[strcspn(str, "\n")] = 0;
+
+  for (count = 0; count < sizeof( *redirect_parsed); count++){
+    redirect_parsed[count] = strsep(&str, "&");
+
+    if (redirect_parsed[count] == NULL)
+      break;
+  }
+
+  for (i = 0; i < count; i++){
+    pid = fork();
+    printf("%s \n", redirect_parsed[i]);
+    if (pid == 0){
+      printf("ya forked!"); 
+      parse_line(redirect_parsed[i], parsed);
+      printf("%s \n", parsed[0]);
+      execvp(parsed[0], parsed);
+    }
+    wait(NULL);
+  }
+}
+
+int redirect(char* str, char** redirect_parsed){
+  int count;
+
+  str[strcspn(str, "\n")] = 0;
+
+  for (count = 0; count < sizeof( *redirect_parsed); count++){
+    redirect_parsed[count] = strsep(&str, ">");
+    printf("this is the curent %s \n", redirect_parsed[count]);
+
+    if (redirect_parsed[count] == NULL)
+      break;
+  }
+  if(count > 3){
+    write(STDERR_FILENO, error_message, strlen(error_message));
+  }
+  return(count);
+}
+
 int batch_wish(FILE *fp){
   char *line_buffer = NULL;
   size_t line_buffer_size = 0;
@@ -85,10 +130,11 @@ int batch_wish(FILE *fp){
     }
   
     char* parsed_args[input_size];
-    // printf("the line begins with %c", line_buffer[0]);
-    // printf("the input size is %d", input_size);
 
     if(line_buffer[0] != '#'){
+      if(strstr(line_buffer, ">")){
+        printf("redirect");
+      }
       arg_num = parse_line(line_buffer, parsed_args);
 
       if (strcmp(parsed_args[0], "exit") == 0){
@@ -122,12 +168,40 @@ void interactive_wish(void){
   size_t line_buffer_size =0;
   int input_size;
   int arg_num;
+  int fd;
 
   while (1){
     printf("wish> ");
     input_size = getline(&line_buffer, &line_buffer_size, stdin);
 
     char* parsed_args[input_size];
+    char* redi_parsed_args[input_size];
+
+    if(strstr(line_buffer, "&")){
+      parallel(line_buffer);
+    }
+
+    if(strstr(line_buffer, ">")){
+      redirect(line_buffer, redi_parsed_args);
+      
+      printf("%s \n", redi_parsed_args[1]);
+      
+
+      if (fork() == 0){
+
+      fd = open(redi_parsed_args[1], O_RDWR | O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
+      dup2(fd, 1);
+      close(fd);
+      
+      arg_num = parse_line(redi_parsed_args[0], parsed_args);
+
+      execvp(parsed_args[0], parsed_args);
+
+      continue;
+      }
+
+    }
+
 
     // parsing the line
     arg_num = parse_line(line_buffer, parsed_args);
@@ -145,7 +219,6 @@ void interactive_wish(void){
         write(STDERR_FILENO, error_message, strlen(error_message));
       } else if (chdir(parsed_args[1]) == -1){
         write(STDERR_FILENO, error_message, strlen(error_message));
-        // chdir(parsed_args[1]);
       }
     } else if (strcmp(parsed_args[0], "path") == 0){
       exit(0);
@@ -153,13 +226,7 @@ void interactive_wish(void){
       // excuting the command 
       execute_arg(parsed_args);
     }
-
   }
-
-    
-  // if(piped()){
-  //   parse_piped();
-  // }
 }
 
 int main(int argc, char **argv)
