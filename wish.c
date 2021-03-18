@@ -277,7 +277,11 @@ void interactive_wish(void){
   while (1){
     printf("wish> ");
     input_size = getline(&line_buffer, &line_buffer_size, stdin);
+    if(input_size == 1){
+      continue;
+    }
     run_command(line_buffer, input_size, path);
+    wait(NULL);
   }
 }
 
