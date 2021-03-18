@@ -122,7 +122,7 @@ void execute_arg(char** parsed, char* path){
   return;
 }
 
-void parallel(char* str){
+void parallel(char* str, char* path){
   int count, i;
   pid_t pid;
   char* parsed[1000];
@@ -135,6 +135,7 @@ void parallel(char* str){
 
   for (count = 0; count < 1000; count++){
     redirect_parsed[count] = strsep(&str, "&");
+    // printf("the current section is: %s\n", redirect_parsed[count]);
     
     if (redirect_parsed[count] == NULL)
       break;
@@ -145,7 +146,7 @@ void parallel(char* str){
 
     if (pid == 0){
       parse_line(redirect_parsed[i], parsed);
-      execvp(parsed[0], parsed);
+      execute_arg(parsed, path);
     }
   }
   while (count > 0){
@@ -224,7 +225,7 @@ int run_command(char * str, int size, char* path){
   input = strcpy(input, str);
 
   if(strstr(str, "&")){ //check for parallel
-    parallel(str);
+    parallel(str, path);
     parallel_flag = 1;
     return(0);
   } 
