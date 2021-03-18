@@ -274,12 +274,20 @@ int batch_wish(FILE *fp){
   while (run == 0){
 
     input_size = getline(&line_buffer, &line_buffer_size, fp);
+    // printf(" the in put is size %d and the line len is %ld\n ", input_size, strlen(line_buffer));
+    line_buffer = trimwhitespace(line_buffer);
+    // printf(" the in put is size %d and the line len is %ld\n ", input_size, strlen(line_buffer));
+    if(strlen(line_buffer) == 0){
+      continue;
+    }
+    // printf("getting an dline \n");
     if (input_size < 0){
       return(run);
     }
   
     run = run_command(line_buffer, input_size, path);
     wait(NULL);
+    // printf("success!\n");
   }
   return(run);
 }
