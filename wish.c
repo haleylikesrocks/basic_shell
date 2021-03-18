@@ -10,9 +10,13 @@
 #include <ctype.h>
 
 char error_message[30] = "An error has occurred\n";
+int run = 0;
 
 char* concat(const char *s1, const char *s2)
+
+
 {
+  // printf("Im in concat\n");
     char *result = malloc(strlen(s1) + strlen(s2) + 2);
     strcpy(result, s1);
     strcat(result, "/");
@@ -22,9 +26,10 @@ char* concat(const char *s1, const char *s2)
 }
 
 char *trimwhitespace(char *str)
+
 {
   char *end;
-
+// printf("Im in time white space\n");
   // Trim leading space
   while(isspace((unsigned char)*str)) str++;
 
@@ -43,7 +48,7 @@ char *trimwhitespace(char *str)
 
 char* check_path(char* path, char* cmd){
   char* result;
-
+  // printf("Im in chckeck path\n");
   path[strcspn(path, "\n")] = 0;
 
   while(1){
@@ -55,7 +60,7 @@ char* check_path(char* path, char* cmd){
     if (strlen(result) == 0){
       continue;
     }
-
+    
     if(access(concat(result, cmd), X_OK) == 0){
       return concat(result, cmd);
     } else{
@@ -70,7 +75,7 @@ char* check_path(char* path, char* cmd){
 
 int parse_line(char* str, char** parsed){
   int count;
-
+  // printf("Im in parse line\n");
   for (count = 0; count < 1000; count++){
     parsed[count] = strsep(&str, " ");
 
@@ -88,21 +93,24 @@ void execute_arg(char** parsed, char* path){
   int flag;
   pid_t pid = fork();
 
+  // printf("Im in execut arg\n");
+
   char* working_path = check_path(path, parsed[0]);
-  printf("the working path is now %s\n", working_path);
+  // printf("the working path is now %s\n", working_path);
 
   if (pid < 0){
     write(STDERR_FILENO, error_message, strlen(error_message));
+    exit(0);
     // printf("its in the pid\n");
   } else if (pid == 0){
     flag = execv(working_path, parsed);
     if (flag < 0){
       write(STDERR_FILENO, error_message, strlen(error_message));
-      printf("its in the flag\n");
+      exit(0);
+      // printf("its in the flag\n");
     } else if(flag == 0){
       wait(NULL);
       return;
-      exit(0);
     }
   } 
   return;
@@ -114,6 +122,8 @@ void parallel(char* str){
   char* parsed[1000];
   char* redirect_parsed[1000];
   int status;
+
+  // printf("Im in paraell\n");
 
   str[strcspn(str, "\n")] = 0;
 
@@ -137,12 +147,15 @@ void parallel(char* str){
 
     count--;
   }
+  // exit(0);
   return;
 }
 
 int redirect(char* str, char** redirect_parsed, char ** parsed_args, char* path){
   int count, fd, saved_stdout;
 
+
+  // printf("Im in redirect\n");
   str[strcspn(str, "\n")] = 0;
   // printf("currently working on %s\n", str);
 
@@ -184,18 +197,19 @@ int redirect(char* str, char** redirect_parsed, char ** parsed_args, char* path)
   dup2(saved_stdout, 1);
   close(saved_stdout);
 
-  return (0);
+  exit(0);
 }
 
 return (-1);
 }
 
-void run_command(char * str, int size, char* path){
+int run_command(char * str, int size, char* path){
   char* parsed_args[size];
   char* redi_parsed_args[size];
   int arg_num, parallel_flag = 0, redirect_flag = 0;
 
   char* input;
+  // printf("Im in run command\n");
 
   str[strcspn(str, "\n")] = 0;
 
@@ -205,12 +219,12 @@ void run_command(char * str, int size, char* path){
   if(strstr(str, "&")){ //check for parallel
     parallel(str);
     parallel_flag = 1;
-    return;
+    return(0);
   } 
   else if(strstr(str, ">")){ // check for redirection
     redirect(str, redi_parsed_args, parsed_args, path);
     redirect_flag = 1;
-    return;
+    return(0);
   } 
   else{ // no redirect or parallel flags
     arg_num = parse_line(str, parsed_args);
@@ -219,20 +233,24 @@ void run_command(char * str, int size, char* path){
     if (strcmp(parsed_args[0], "exit") == 0){
       if (arg_num != 1){
         write(STDERR_FILENO, error_message, strlen(error_message));
+        return(0);
       }
       exit(0);
+      return(1);
     } 
     else if (strcmp(parsed_args[0], "cd") == 0){
       if (arg_num != 2){
         write(STDERR_FILENO, error_message, strlen(error_message));
+        return(0);
       } else if (chdir(parsed_args[1]) == -1){
         write(STDERR_FILENO, error_message, strlen(error_message));
+        return(0);
       }
-      return;
+      return(0);
     } 
     else if (strcmp(parsed_args[0], "path") == 0){
       strcpy(path, input);
-      return;
+      return(0);
     } 
   }
     
@@ -240,54 +258,59 @@ void run_command(char * str, int size, char* path){
   if (parallel_flag == 0 && redirect_flag == 0){
     execute_arg(parsed_args, path);
   }
+  return(0);
 }
 
 int batch_wish(FILE *fp){
   char *line_buffer = NULL;
   size_t line_buffer_size = 0;
-  int input_size = 0;
+  int input_size = 0, run = 0;
   char* path;
 
-
+  // printf("Im in batch\n");
   path = (char*)malloc(1000*sizeof(char));
   path = strcpy(path, "/bin");
 
-  while (1){
+  while (run == 0){
 
     input_size = getline(&line_buffer, &line_buffer_size, fp);
     if (input_size < 0){
-      exit(0);
+      return(run);
     }
-    
-    run_command(line_buffer, input_size, path);
+  
+    run = run_command(line_buffer, input_size, path);
     wait(NULL);
   }
-
-  exit(0);
+  return(run);
 }
 
-void interactive_wish(void){
+int interactive_wish(void){
   char *line_buffer = NULL;
   size_t line_buffer_size =0;
-  int input_size;
+  int input_size, run = 0;
   char* path;
+  // printf("Im in interactive\n");
 
   path = (char*)malloc(1000*sizeof(char));
   path = strcpy(path, "/bin");
 
-  while (1){
+  while (run == 0){
     printf("wish> ");
     input_size = getline(&line_buffer, &line_buffer_size, stdin);
     if(input_size == 1){
       continue;
     }
-    run_command(line_buffer, input_size, path);
+    run = run_command(line_buffer, input_size, path);
     wait(NULL);
   }
+  return(run);
 }
 
 int main(int argc, char **argv)
 {
+  // printf("I'm in main agin!");
+  int run;
+
   if(argc > 1){
     FILE *fpin;
 
@@ -301,13 +324,21 @@ int main(int argc, char **argv)
       exit(1);
     }
 
-    batch_wish(fpin);
-    
+    run = batch_wish(fpin);
+    if(run == 1){
+    exit(0);
+  }
     exit(0);
 
+  } else { 
+  run = interactive_wish();
+  if(run == 1){
+    printf("shouldn't I exit\n");
+    exit(0);
+    printf("i really should \n");
+    exit(0);
   }
-  interactive_wish();
-  
   exit(0);
+  }
 
 }
