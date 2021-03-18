@@ -89,7 +89,7 @@ void execute_arg(char** parsed, char* path){
   pid_t pid = fork();
 
   char* working_path = check_path(path, parsed[0]);
-  // printf("the working path is now %s\n", working_path);
+  printf("the working path is now %s\n", working_path);
 
   if (pid < 0){
     write(STDERR_FILENO, error_message, strlen(error_message));
@@ -260,6 +260,7 @@ int batch_wish(FILE *fp){
     }
     
     run_command(line_buffer, input_size, path);
+    wait(NULL);
   }
 
   exit(0);
