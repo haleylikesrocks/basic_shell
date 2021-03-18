@@ -48,12 +48,17 @@ char *trimwhitespace(char *str)
 
 char* check_path(char* path, char* cmd){
   char* result;
-  // printf("Im in chckeck path\n");
+  // printf("Im in chckeck %s\n", path);
   path[strcspn(path, "\n")] = 0;
 
-  while(1){
-    result = strsep(&path, " ");
+  char* input;
 
+  input = (char*)malloc(1000*sizeof(char));
+  input = strcpy(input, path);
+
+  while(1){
+    result = strsep(&input, " ");
+    // printf("Im in chckeck %s\n", path);
     if (result == NULL){
       break;
     }
@@ -69,7 +74,7 @@ char* check_path(char* path, char* cmd){
 
     result = "\0";
   } 
-
+  // path = strcpy(path, input);
   return (cmd); 
 }
 
@@ -94,6 +99,7 @@ void execute_arg(char** parsed, char* path){
   pid_t pid = fork();
 
   // printf("Im in execut arg\n");
+  // printf("the working path is now %s\n", path);
 
   char* working_path = check_path(path, parsed[0]);
   // printf("the working path is now %s\n", working_path);
@@ -146,6 +152,7 @@ void parallel(char* str){
     waitpid(-1, &status, 0);
 
     count--;
+    // exit(0);
   }
   // exit(0);
   return;
@@ -261,15 +268,15 @@ int run_command(char * str, int size, char* path){
   return(0);
 }
 
-int batch_wish(FILE *fp){
+int batch_wish(FILE *fp, char* path){
   char *line_buffer = NULL;
   size_t line_buffer_size = 0;
   int input_size = 0, run = 0;
-  char* path;
+  // char* path;
 
-  // printf("Im in batch\n");
-  path = (char*)malloc(1000*sizeof(char));
-  path = strcpy(path, "/bin");
+  // // printf("Im in batch\n");
+  // path = (char*)malloc(1000*sizeof(char));
+  // path = strcpy(path, "/bin");
 
   while (run == 0){
 
@@ -292,15 +299,15 @@ int batch_wish(FILE *fp){
   return(run);
 }
 
-int interactive_wish(void){
+int interactive_wish(char* path){
   char *line_buffer = NULL;
   size_t line_buffer_size =0;
   int input_size, run = 0;
-  char* path;
-  // printf("Im in interactive\n");
+  // char* path;
+  // // printf("Im in interactive\n");
 
-  path = (char*)malloc(1000*sizeof(char));
-  path = strcpy(path, "/bin");
+  // path = (char*)malloc(1000*sizeof(char));
+  // path = strcpy(path, "/bin");
 
   while (run == 0){
     printf("wish> ");
@@ -318,6 +325,11 @@ int main(int argc, char **argv)
 {
   // printf("I'm in main agin!");
   int run;
+  char* path;
+
+  // printf("Im in batch\n");
+  path = (char*)malloc(1000*sizeof(char));
+  path = strcpy(path, "/bin");
 
   if(argc > 1){
     FILE *fpin;
@@ -332,14 +344,14 @@ int main(int argc, char **argv)
       exit(1);
     }
 
-    run = batch_wish(fpin);
+    run = batch_wish(fpin, path);
     if(run == 1){
     exit(0);
   }
     exit(0);
 
   } else { 
-  run = interactive_wish();
+  run = interactive_wish(path);
   if(run == 1){
     printf("shouldn't I exit\n");
     exit(0);
