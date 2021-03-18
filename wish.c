@@ -7,157 +7,259 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <ctype.h>
 
 char error_message[30] = "An error has occurred\n";
+
+char* concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1) + strlen(s2) + 2);
+    strcpy(result, s1);
+    strcat(result, "/");
+    result[strcspn(result, "\0")] = 0;
+    strcat(result, s2);
+    return result;
+}
+
+char *trimwhitespace(char *str)
+{
+  char *end;
+
+  // Trim leading space
+  while(isspace((unsigned char)*str)) str++;
+
+  if(*str == 0)  // All spaces?
+    return str;
+
+  // Trim trailing space
+  end = str + strlen(str) - 1;
+  while(end > str && isspace((unsigned char)*end)) end--;
+
+  // Write new null terminator character
+  end[1] = '\0';
+
+  return str;
+}
+
+char* check_path(char* path, char* cmd){
+  char* result;
+
+  path[strcspn(path, "\n")] = 0;
+
+  while(1){
+    result = strsep(&path, " ");
+
+    if (result == NULL){
+      break;
+    }
+    if (strlen(result) == 0){
+      continue;
+    }
+
+    if(access(concat(result, cmd), X_OK) == 0){
+      return concat(result, cmd);
+    } else{
+      continue;
+    }
+
+    result = "\0";
+  } 
+
+  return (cmd); 
+}
 
 int parse_line(char* str, char** parsed){
   int count;
 
-  str[strcspn(str, "\n")] = 0;
-
-  for (count = 0; count < sizeof( *parsed); count++){
+  for (count = 0; count < 1000; count++){
     parsed[count] = strsep(&str, " ");
 
     if (parsed[count] == NULL)
       break;
-  
 
-    // if (strlen(parsed[count]) == 0){
-    //   count--;
-    // }
+    if (strlen(parsed[count]) == 0){
+      count--;
+    }
   }
   return(count);
 }
 
-void execute_arg(char** parsed){
+void execute_arg(char** parsed, char* path){
   int flag;
   pid_t pid = fork();
 
+  char* working_path = check_path(path, parsed[0]);
+  // printf("the working path is now %s\n", working_path);
+
   if (pid < 0){
     write(STDERR_FILENO, error_message, strlen(error_message));
-    printf("there err is in pid < 0");
+    // printf("its in the pid\n");
   } else if (pid == 0){
-    flag = execvp(parsed[0], parsed);
+    flag = execv(working_path, parsed);
     if (flag < 0){
       write(STDERR_FILENO, error_message, strlen(error_message));
+      printf("its in the flag\n");
+    } else if(flag == 0){
+      wait(NULL);
+      return;
+      exit(0);
     }
-    exit(0);
-  } else{
-    wait(NULL);
-    return;
-  }
+  } 
+  return;
 }
-
-// int built_in(char** parsed){
-//   if (strcmp(parsed_args[0], "exit") == 0){
-//       exit(0);
-//     } else if (strcmp(parsed_args[0], "cd") == 0){
-//       if (arg_num != 2){
-//         write(STDERR_FILENO, error_message, strlen(error_message));
-//         printf("wrong args num\n");
-//       } else if (chdir(parsed_args[1]) == -1){
-//         write(STDERR_FILENO, error_message, strlen(error_message));
-//         printf("invalid cd");
-//         // chdir(parsed_args[1]);
-//       }
-//     } else if (strcmp(parsed_args[0], "path") == 0){
-//       return;
-//     } 
-//     }
-
-//   }
-
-// }
 
 void parallel(char* str){
   int count, i;
   pid_t pid;
   char* parsed[1000];
   char* redirect_parsed[1000];
+  int status;
 
   str[strcspn(str, "\n")] = 0;
 
-  for (count = 0; count < sizeof( *redirect_parsed); count++){
+  for (count = 0; count < 1000; count++){
     redirect_parsed[count] = strsep(&str, "&");
-
+    
     if (redirect_parsed[count] == NULL)
       break;
   }
 
   for (i = 0; i < count; i++){
     pid = fork();
-    printf("%s \n", redirect_parsed[i]);
+
     if (pid == 0){
-      printf("ya forked!"); 
       parse_line(redirect_parsed[i], parsed);
-      printf("%s \n", parsed[0]);
       execvp(parsed[0], parsed);
     }
-    wait(NULL);
   }
+  while (count > 0){
+    waitpid(-1, &status, 0);
+
+    count--;
+  }
+  return;
 }
 
-int redirect(char* str, char** redirect_parsed){
-  int count;
+int redirect(char* str, char** redirect_parsed, char ** parsed_args, char* path){
+  int count, fd, saved_stdout;
 
   str[strcspn(str, "\n")] = 0;
+  // printf("currently working on %s\n", str);
 
-  for (count = 0; count < sizeof( *redirect_parsed); count++){
+  for (count = 0; count < 1000; count++){
     redirect_parsed[count] = strsep(&str, ">");
-    printf("this is the curent %s \n", redirect_parsed[count]);
 
     if (redirect_parsed[count] == NULL)
       break;
+
+    if (strlen(redirect_parsed[count]) == 0){
+      count--;
+    }
   }
-  if(count > 3){
+  if(count != 2){
     write(STDERR_FILENO, error_message, strlen(error_message));
+    return (-1);
   }
-  return(count);
+  if(strstr(trimwhitespace(redirect_parsed[1]), " ")){
+    write(STDERR_FILENO, error_message, strlen(error_message));
+    return (-1);
+  }
+
+  if (fork() == 0){
+
+    fd = open(trimwhitespace(redirect_parsed[1]), O_WRONLY | O_CREAT | O_TRUNC, 0666); // opening file
+    
+    if(fd < 0){ // checking for open file error
+     write(STDERR_FILENO, error_message, strlen(error_message));
+     return(-1);
+    }
+    saved_stdout = dup(1);
+    dup2(fd, 1);
+    close(fd);
+      
+  parse_line(redirect_parsed[0], parsed_args);
+
+  execute_arg(parsed_args, path);
+
+  dup2(saved_stdout, 1);
+  close(saved_stdout);
+
+  return (0);
+}
+
+return (-1);
+}
+
+void run_command(char * str, int size, char* path){
+  char* parsed_args[size];
+  char* redi_parsed_args[size];
+  int arg_num, parallel_flag = 0, redirect_flag = 0;
+
+  char* input;
+
+  str[strcspn(str, "\n")] = 0;
+
+  input = (char*)malloc(1000*sizeof(char));
+  input = strcpy(input, str);
+
+  if(strstr(str, "&")){ //check for parallel
+    parallel(str);
+    parallel_flag = 1;
+    return;
+  } 
+  else if(strstr(str, ">")){ // check for redirection
+    redirect(str, redi_parsed_args, parsed_args, path);
+    redirect_flag = 1;
+    return;
+  } 
+  else{ // no redirect or parallel flags
+    arg_num = parse_line(str, parsed_args);
+
+    // checking to see if it is a built in command
+    if (strcmp(parsed_args[0], "exit") == 0){
+      if (arg_num != 1){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+      }
+      exit(0);
+    } 
+    else if (strcmp(parsed_args[0], "cd") == 0){
+      if (arg_num != 2){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+      } else if (chdir(parsed_args[1]) == -1){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+      }
+      return;
+    } 
+    else if (strcmp(parsed_args[0], "path") == 0){
+      strcpy(path, input);
+      return;
+    } 
+  }
+    
+
+  if (parallel_flag == 0 && redirect_flag == 0){
+    execute_arg(parsed_args, path);
+  }
 }
 
 int batch_wish(FILE *fp){
   char *line_buffer = NULL;
   size_t line_buffer_size = 0;
   int input_size = 0;
-  int arg_num;
+  char* path;
 
-  while (input_size >= 0){
+
+  path = (char*)malloc(1000*sizeof(char));
+  path = strcpy(path, "/bin");
+
+  while (1){
 
     input_size = getline(&line_buffer, &line_buffer_size, fp);
     if (input_size < 0){
       exit(0);
     }
-  
-    char* parsed_args[input_size];
-
-    if(line_buffer[0] != '#'){
-      if(strstr(line_buffer, ">")){
-        printf("redirect");
-      }
-      arg_num = parse_line(line_buffer, parsed_args);
-
-      if (strcmp(parsed_args[0], "exit") == 0){
-        if (arg_num != 1){
-          write(STDERR_FILENO, error_message, strlen(error_message));
-          continue;
-        } else{
-          exit(0);
-        }
-      } else if (strcmp(parsed_args[0], "cd") == 0){
-        if (arg_num != 2){
-          write(STDERR_FILENO, error_message, strlen(error_message));
-          continue;
-        } else if (chdir(parsed_args[1]) == -1){
-          write(STDERR_FILENO, error_message, strlen(error_message));
-          continue;
-        }
-      } else {
-        execute_arg(parsed_args);
-      }
-    }
-
-    line_buffer = '\0';
+    
+    run_command(line_buffer, input_size, path);
   }
 
   exit(0);
@@ -167,65 +269,15 @@ void interactive_wish(void){
   char *line_buffer = NULL;
   size_t line_buffer_size =0;
   int input_size;
-  int arg_num;
-  int fd;
+  char* path;
+
+  path = (char*)malloc(1000*sizeof(char));
+  path = strcpy(path, "/bin");
 
   while (1){
     printf("wish> ");
     input_size = getline(&line_buffer, &line_buffer_size, stdin);
-
-    char* parsed_args[input_size];
-    char* redi_parsed_args[input_size];
-
-    if(strstr(line_buffer, "&")){
-      parallel(line_buffer);
-    }
-
-    if(strstr(line_buffer, ">")){
-      redirect(line_buffer, redi_parsed_args);
-      
-      printf("%s \n", redi_parsed_args[1]);
-      
-
-      if (fork() == 0){
-
-      fd = open(redi_parsed_args[1], O_RDWR | O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
-      dup2(fd, 1);
-      close(fd);
-      
-      arg_num = parse_line(redi_parsed_args[0], parsed_args);
-
-      execvp(parsed_args[0], parsed_args);
-
-      continue;
-      }
-
-    }
-
-
-    // parsing the line
-    arg_num = parse_line(line_buffer, parsed_args);
-
-    // checking to see if it is a built in command
-    if (strcmp(parsed_args[0], "exit") == 0){
-      if (arg_num != 1){
-        write(STDERR_FILENO, error_message, strlen(error_message));
-        continue;
-      } else{
-        exit(0);
-      }
-    } else if (strcmp(parsed_args[0], "cd") == 0){
-      if (arg_num != 2){
-        write(STDERR_FILENO, error_message, strlen(error_message));
-      } else if (chdir(parsed_args[1]) == -1){
-        write(STDERR_FILENO, error_message, strlen(error_message));
-      }
-    } else if (strcmp(parsed_args[0], "path") == 0){
-      exit(0);
-    } else {
-      // excuting the command 
-      execute_arg(parsed_args);
-    }
+    run_command(line_buffer, input_size, path);
   }
 }
 
@@ -245,8 +297,12 @@ int main(int argc, char **argv)
     }
 
     batch_wish(fpin);
+    
+    exit(0);
+
   }
-  
   interactive_wish();
+  
+  exit(0);
 
 }
