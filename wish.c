@@ -128,8 +128,8 @@ void execute_arg(char** parsed, char* path){
 }
 
 void parallel(char* str, char* path){
-  int count, i;
-  pid_t pid;
+  int count, i, flag;
+  pid_t pid, wpid;
   char* parsed[1000];
   char* redirect_parsed[1000];
   int status;
@@ -146,13 +146,20 @@ void parallel(char* str, char* path){
     if (redirect_parsed[count] == NULL)
       break;
   }
-
+  // printf("the count is now: %d\n", count);
   for (i = 0; i < count; i++){
     pid = fork();
 
     if (pid == 0){
       parse_line(redirect_parsed[i], parsed);
-      execute_arg(parsed, path);
+      char* working_path = check_path(path, parsed[0]); 
+      
+      flag = execv(working_path, parsed);
+
+      if (flag < 0){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+      }
+
       exit(0);
     }
     else if(pid < 0){
@@ -160,12 +167,14 @@ void parallel(char* str, char* path){
       return;
     }
   }
-  while (count > 0){
-    waitpid(-1, &status, 0);
 
-    count--;
-    // exit(0);
-  }
+  while((wpid = wait(&status)) > 0);
+  // while (count > 0){
+  //   waitpid(-1, &status, 0);
+
+  //   count--;
+  //   exit(0);
+  // }
   // exit(0);
   return;
 }
@@ -220,9 +229,11 @@ int redirect(char* str, char** redirect_parsed, char ** parsed_args, char* path)
   close(saved_stdout);
 
   exit(0);
-}
+} else{
 
-return (-1);
+  write(STDERR_FILENO, error_message, strlen(error_message));
+  exit(0);
+}
 }
 
 int run_command(char * str, int size, char* path){
