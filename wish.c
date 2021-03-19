@@ -55,6 +55,7 @@ char* check_path(char* path, char* cmd){
 
   input = (char*)malloc(1000*sizeof(char));
   input = strcpy(input, path);
+  // printf("the path is %s\n", path);
 
   while(1){
     result = strsep(&input, " ");
@@ -65,6 +66,7 @@ char* check_path(char* path, char* cmd){
     if (strlen(result) == 0){
       continue;
     }
+    // printf("the path is %s\n", path);
     
     if(access(concat(result, cmd), X_OK) == 0){
       return concat(result, cmd);
@@ -75,6 +77,7 @@ char* check_path(char* path, char* cmd){
     result = "\0";
   } 
   // path = strcpy(path, input);
+  // printf("the path is %s\n", path);
   return (cmd); 
 }
 
@@ -110,10 +113,12 @@ void execute_arg(char** parsed, char* path){
     // printf("its in the pid\n");
   } else if (pid == 0){
     flag = execv(working_path, parsed);
+    // printf("the working path: %s \n", working_path);
     if (flag < 0){
       write(STDERR_FILENO, error_message, strlen(error_message));
-      exit(0);
+      
       // printf("its in the flag\n");
+      exit(0);
     } else if(flag == 0){
       wait(NULL);
       return;
@@ -136,6 +141,7 @@ void parallel(char* str, char* path){
   for (count = 0; count < 1000; count++){
     redirect_parsed[count] = strsep(&str, "&");
     // printf("the current section is: %s\n", redirect_parsed[count]);
+    /// sheck to see
     
     if (redirect_parsed[count] == NULL)
       break;
@@ -147,6 +153,11 @@ void parallel(char* str, char* path){
     if (pid == 0){
       parse_line(redirect_parsed[i], parsed);
       execute_arg(parsed, path);
+      exit(0);
+    }
+    else if(pid < 0){
+      write(STDERR_FILENO, error_message, strlen(error_message));
+      return;
     }
   }
   while (count > 0){
@@ -179,10 +190,12 @@ int redirect(char* str, char** redirect_parsed, char ** parsed_args, char* path)
   }
   if(count != 2){
     write(STDERR_FILENO, error_message, strlen(error_message));
+    // printf("its in redirect 1 \n");
     return (-1);
   }
   if(strstr(trimwhitespace(redirect_parsed[1]), " ")){
     write(STDERR_FILENO, error_message, strlen(error_message));
+    // printf("its in redirect 1 \n");
     return (-1);
   }
 
@@ -192,6 +205,7 @@ int redirect(char* str, char** redirect_parsed, char ** parsed_args, char* path)
     
     if(fd < 0){ // checking for open file error
      write(STDERR_FILENO, error_message, strlen(error_message));
+    //  printf("its in redirect 3 \n");
      return(-1);
     }
     saved_stdout = dup(1);
@@ -241,6 +255,7 @@ int run_command(char * str, int size, char* path){
     if (strcmp(parsed_args[0], "exit") == 0){
       if (arg_num != 1){
         write(STDERR_FILENO, error_message, strlen(error_message));
+        // printf("its in exit 1 \n");
         return(0);
       }
       exit(0);
@@ -249,6 +264,7 @@ int run_command(char * str, int size, char* path){
     else if (strcmp(parsed_args[0], "cd") == 0){
       if (arg_num != 2){
         write(STDERR_FILENO, error_message, strlen(error_message));
+        // printf("its in cd1 \n");
         return(0);
       } else if (chdir(parsed_args[1]) == -1){
         write(STDERR_FILENO, error_message, strlen(error_message));
@@ -278,6 +294,7 @@ int batch_wish(FILE *fp, char* path){
   // // printf("Im in batch\n");
   // path = (char*)malloc(1000*sizeof(char));
   // path = strcpy(path, "/bin");
+  // printf("the path is %s\n", path);
 
   while (run == 0){
 
@@ -305,7 +322,7 @@ int interactive_wish(char* path){
   size_t line_buffer_size =0;
   int input_size, run = 0;
   // char* path;
-  // // printf("Im in interactive\n");
+  // printf("the path is %s\n", path);
 
   // path = (char*)malloc(1000*sizeof(char));
   // path = strcpy(path, "/bin");
@@ -338,10 +355,12 @@ int main(int argc, char **argv)
     fpin = fopen(argv[1], "r");
     if(fpin == NULL){
       write(STDERR_FILENO, error_message, strlen(error_message));
+      // printf("its in batch 1 \n");
       exit(1);
     }
     if(argc > 2){
       write(STDERR_FILENO, error_message, strlen(error_message));
+      // printf("its in batch 2\n");
       exit(1);
     }
 
