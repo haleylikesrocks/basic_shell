@@ -127,6 +127,38 @@ void execute_arg(char** parsed, char* path){
   return;
 }
 
+void redi_execute_arg(char** parsed, char* path){
+  int flag;
+  pid_t pid = fork();
+  // printf("the pid is %d\n", pid);
+
+  // printf("Im in execut arg\n");
+  // printf("the working path is now %s\n", path);
+
+  char* working_path = check_path(path, parsed[0]);
+  // printf("the working path is now %s\n", working_path);
+
+  if (pid < 0){
+    write(STDERR_FILENO, error_message, strlen(error_message));
+    exit(0);
+    // printf("its in the pid\n");
+  } else if (pid == 0){
+    flag = execv(working_path, parsed);
+    // printf("the working path: %s \n", working_path);
+    if (flag < 0){
+      write(STDERR_FILENO, error_message, strlen(error_message));
+      
+      // printf("its in the flag\n");
+      exit(0);
+    } else if(flag == 0){
+      wait(NULL);
+      return;
+    }
+  } 
+  return;
+}
+
+
 void parallel(char* str, char* path){
   int count, i, flag;
   pid_t pid, wpid;
@@ -134,26 +166,23 @@ void parallel(char* str, char* path){
   char* redirect_parsed[1000];
   int status;
 
-  // printf("Im in paraell\n");
-
   str[strcspn(str, "\n")] = 0;
 
   for (count = 0; count < 1000; count++){
     redirect_parsed[count] = strsep(&str, "&");
-    // printf("the current section is: %s\n", redirect_parsed[count]);
-    /// sheck to see
     
     if (redirect_parsed[count] == NULL)
       break;
   }
-  // printf("the count is now: %d\n", count);
+
   for (i = 0; i < count; i++){
     pid = fork();
 
     if (pid == 0){
       parse_line(redirect_parsed[i], parsed);
+      //what if redirected
       char* working_path = check_path(path, parsed[0]); 
-      
+
       flag = execv(working_path, parsed);
 
       if (flag < 0){
@@ -169,23 +198,13 @@ void parallel(char* str, char* path){
   }
 
   while((wpid = wait(&status)) > 0);
-  // while (count > 0){
-  //   waitpid(-1, &status, 0);
-
-  //   count--;
-  //   exit(0);
-  // }
-  // exit(0);
   return;
 }
 
 int redirect(char* str, char** redirect_parsed, char ** parsed_args, char* path){
   int count, fd, saved_stdout;
 
-
-  // printf("Im in redirect\n");
   str[strcspn(str, "\n")] = 0;
-  // printf("currently working on %s\n", str);
 
   for (count = 0; count < 1000; count++){
     redirect_parsed[count] = strsep(&str, ">");
@@ -197,43 +216,37 @@ int redirect(char* str, char** redirect_parsed, char ** parsed_args, char* path)
       count--;
     }
   }
+  
   if(count != 2){
     write(STDERR_FILENO, error_message, strlen(error_message));
-    // printf("its in redirect 1 \n");
     return (-1);
   }
   if(strstr(trimwhitespace(redirect_parsed[1]), " ")){
     write(STDERR_FILENO, error_message, strlen(error_message));
-    // printf("its in redirect 1 \n");
     return (-1);
   }
 
-  if (fork() == 0){
-
-    fd = open(trimwhitespace(redirect_parsed[1]), O_WRONLY | O_CREAT | O_TRUNC, 0666); // opening file
+  fd = open(trimwhitespace(redirect_parsed[1]), O_WRONLY | O_CREAT | O_TRUNC, 0666); // opening file
     
-    if(fd < 0){ // checking for open file error
-     write(STDERR_FILENO, error_message, strlen(error_message));
-    //  printf("its in redirect 3 \n");
-     return(-1);
-    }
-    saved_stdout = dup(1);
-    dup2(fd, 1);
-    close(fd);
-      
+  if(fd < 0){ // checking for open file error
+    write(STDERR_FILENO, error_message, strlen(error_message));
+    return(-1);
+  }
+
+  saved_stdout = dup(1);
+  dup2(fd, 1);
+  close(fd);
+  
   parse_line(redirect_parsed[0], parsed_args);
 
-  execute_arg(parsed_args, path);
-
-  dup2(saved_stdout, 1);
+  redi_execute_arg(parsed_args, path);
+  wait(NULL);
+    
+  dup2(saved_stdout, 1); //switch back out put
   close(saved_stdout);
 
-  exit(0);
-} else{
-
-  write(STDERR_FILENO, error_message, strlen(error_message));
-  exit(0);
-}
+  // exit(0);
+  return(0);
 }
 
 int run_command(char * str, int size, char* path){
