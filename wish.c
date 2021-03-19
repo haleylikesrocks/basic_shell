@@ -164,7 +164,8 @@ void parallel(char* str, char* path){
   pid_t pid, wpid;
   char* parsed[1000];
   char* redirect_parsed[1000];
-  int status;
+  int status, redi_flag = 0, saved_stdout, fd, redi_count;
+  char* redi_parsed[1000];
 
   str[strcspn(str, "\n")] = 0;
 
@@ -179,6 +180,34 @@ void parallel(char* str, char* path){
     pid = fork();
 
     if (pid == 0){
+      if(strstr(redirect_parsed[i], ">")){
+        // parse on redirect
+        for (redi_count = 0; redi_count < 2; redi_count++){
+          redi_parsed[count] = strsep(&str, ">");
+
+          if (strlen(redirect_parsed[count]) == 0){
+            count--;
+          }
+        }
+        redirect_parsed[i] = redi_parsed[0];
+
+        //opening the file
+        fd = open(trimwhitespace(redi_parsed[1]), O_WRONLY | O_CREAT | O_TRUNC, 0666); // opening file
+
+        // duplicating file descrptor for later
+        saved_stdout = dup(1);
+        dup2(fd, 1);
+        close(fd);
+
+        if(fd < 0){ // checking for open file error
+          write(STDERR_FILENO, error_message, strlen(error_message));
+          return;
+        }
+
+        // set a flag for later
+        redi_flag = 1;
+      }
+
       parse_line(redirect_parsed[i], parsed);
       //what if redirected
       char* working_path = check_path(path, parsed[0]); 
@@ -187,6 +216,11 @@ void parallel(char* str, char* path){
 
       if (flag < 0){
         write(STDERR_FILENO, error_message, strlen(error_message));
+      }
+
+      if(redi_flag == 1){
+        dup2(saved_stdout, 1); //switch back out put
+        close(saved_stdout);
       }
 
       exit(0);
